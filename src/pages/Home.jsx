@@ -10,7 +10,7 @@ const Home = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const { setBot } = useStore();
+    const { addBot } = useStore();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -24,7 +24,7 @@ const Home = () => {
 
         try {
             const botMe = await getMe(token.trim());
-            setBot(token.trim(), botMe);
+            addBot(token.trim(), botMe);
             navigate(`/dashboard?bot=${botMe.username}`);
         } catch (err) {
             setError(err.message || 'Invalid bot token');

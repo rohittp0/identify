@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, Navigate, useNavigate } from 'react-router-dom';
-import { LogOut, RefreshCw, Copy, CheckCircle2, MessageSquare, Hash } from 'lucide-react';
+import { ArrowLeftRight, Trash2, RefreshCw, Copy, CheckCircle2, MessageSquare, Hash } from 'lucide-react';
 import { Card, Button } from '../components/ui';
 import { useStore } from '../hooks/useStore';
 import { getUpdates } from '../api/telegram';
@@ -11,19 +11,20 @@ const Dashboard = () => {
     const [searchParams] = useSearchParams();
     const botName = searchParams.get('bot');
     const navigate = useNavigate();
-    const { token, bot, chats, addChats, clear } = useStore();
+    const { getBot, addChats, forgetBot } = useStore();
+    const entry = getBot(botName);
 
     const [isPolling, setIsPolling] = useState(true);
     const [error, setError] = useState('');
     const [lastUpdateId, setLastUpdateId] = useState(0);
     const [copiedId, setCopiedId] = useState(null);
 
-    // If URL doesn't match stored bot or token is missing, redirect home
-    if (!token || !bot || bot.username !== botName) {
-        return <Navigate to="/" replace />;
-    }
+    const token = entry?.token;
+    const bot = entry?.bot;
+    const chats = entry?.chats;
 
     useEffect(() => {
+        if (!entry) return;
         let timeoutId;
         let isActive = true;
 
@@ -49,11 +50,11 @@ const Dashboard = () => {
                         }
                     }
                     if (newChats.length > 0) {
-                        addChats(newChats);
+                        addChats(botName, newChats);
                     }
                 }
                 setError('');
-            } catch (err) {
+            } catch {
                 if (isActive) setError('Polling failed... retrying.');
             } finally {
                 if (isActive && isPolling) {
@@ -68,10 +69,23 @@ const Dashboard = () => {
             isActive = false;
             clearTimeout(timeoutId);
         };
-    }, [token, lastUpdateId, isPolling, addChats]);
+    }, [token, lastUpdateId, isPolling, addChats, botName, entry]);
 
-    const handleLogout = () => {
-        clear();
+    const sortedChats = useMemo(() => {
+        return Object.values(chats ?? {}).sort((a, b) => a.name.localeCompare(b.name));
+    }, [chats]);
+
+    if (!entry) {
+        return <Navigate to="/" replace />;
+    }
+
+    const handleSwitch = () => {
+        navigate('/');
+    };
+
+    const handleForget = () => {
+        if (!window.confirm(`Forget @${bot.username}? This removes its saved chats.`)) return;
+        forgetBot(bot.username);
         navigate('/');
     };
 
@@ -80,10 +94,6 @@ const Dashboard = () => {
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);
     };
-
-    const sortedChats = useMemo(() => {
-        return Object.values(chats).sort((a, b) => a.name.localeCompare(b.name));
-    }, [chats]);
 
     return (
         <div className="container" style={{ maxWidth: '1000px', paddingTop: '4rem', paddingBottom: '4rem' }}>
@@ -123,8 +133,11 @@ const Dashboard = () => {
                         <RefreshCw size={18} className={isPolling ? "animate-spin" : ""} style={isPolling ? { animation: 'spin 2s linear infinite' } : {}} />
                         {isPolling ? 'Polling Active' : 'Polling Paused'}
                     </Button>
-                    <Button onClick={handleLogout} style={{ width: 'auto', backgroundColor: '#ef4444' }}>
-                        <LogOut size={18} /> Logout
+                    <Button onClick={handleSwitch} style={{ width: 'auto', backgroundColor: 'var(--surface-color)', color: 'var(--text-main)' }}>
+                        <ArrowLeftRight size={18} /> Switch bot
+                    </Button>
+                    <Button onClick={handleForget} style={{ width: 'auto', backgroundColor: '#ef4444' }}>
+                        <Trash2 size={18} /> Forget bot
                     </Button>
                 </div>
             </div>
